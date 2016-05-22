@@ -30,22 +30,30 @@
 
 package com.linuxadb.dao.view;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import com.sun.deploy.util.StringUtils;
+
+import java.awt.*;
+import java.awt.event.*;
+import java.awt.image.BufferedImage;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.List;
+import java.util.TimerTask;
+import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 public class Annetra extends javax.swing.JFrame {
 
+
+
+    // 定时器
+    private java.util.Timer timer = new java.util.Timer();
     /** Creates new form Antenna */
     public Annetra() {
         initComponents();
@@ -98,6 +106,7 @@ public class Annetra extends javax.swing.JFrame {
             }
         });
         this.setLocationRelativeTo(null);
+        this.setResizable(false);
         this.setVisible(true);
         messagePane.cleanCmd();
     }
@@ -117,18 +126,96 @@ public class Annetra extends javax.swing.JFrame {
         jButton7 = new javax.swing.JButton();
         jScrollPane1 = new javax.swing.JScrollPane();
         listmode=new DefaultListModel();
-        listmode.addElement("yoyo");
-        listmode.addElement("yoy12o");
-        listmode.addElement("yoy22o");
+//        listmode.addElement("yoyo");
+//        listmode.addElement("yoy12o");
+//        listmode.addElement("yoy22o");
         jList1 = new JList(listmode);
         jList1.setFixedCellWidth(100);
         jButton8 = new javax.swing.JButton();
         jButton9 = new javax.swing.JButton();
         jPanel1 = new javax.swing.JPanel();
+//        jPanel2 = new javax.swing.JPanel();
+
+        device_s = jList1.getSelectedValue()==null?" ":(" -s "+(String) jList1.getSelectedValue());
+            // 背景图片
+        jPanel2 = flushScreenShot(jList1.getSelectedValue()==null?"":(String) jList1.getSelectedValue());
+
+        jPanel2.addMouseListener(new MouseListener() {
+
+            @Override
+            public void mouseClicked(MouseEvent e) {
+
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+
+                startX = (int) Math.floor(e.getX() * PHONE_X/getX());
+                startY = (int) Math.floor(e.getY() * PHONE_Y/getY());
+            }
+
+
+            // swipe adb shell input swipe 250 250 300 300
+            // click adb shell input tap 447 1860
+            // wakeup adb shell input keyevent 26
+            // input adb shell text xxx
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                endX = (int) Math.floor(e.getX() * PHONE_X/getX());
+                endY = (int) Math.floor(e.getY() * PHONE_Y/getY());
+                if(endX < 0 || endY < 0){
+                    return ;
+                }
+                String cmd;
+                if(Point.distance(endX,endY,startX,startY)<=5){
+                    // 执行点击 => 截图
+                    cmd = "adb  "+device_s+" shell input tap "+endX+" "+endY;
+                    messagePane.addData(messagePane.getCmdTip() + cmd);
+                    outStream.println(cmd);
+                    outStream.flush();
+                    messagePane.cleanCmd();
+                }else{
+                    // 执行滑动 => 截图
+                    cmd = "adb  "+device_s+" shell input swipe "+startX+" "+startY +" "+endX+" "+endY;
+                    messagePane.addData(messagePane.getCmdTip() + cmd);
+                    outStream.println(cmd);
+                    outStream.flush();
+                    messagePane.cleanCmd();
+                }
+                cmd = "adb  "+device_s+" shell /system/bin/screencap -p /sdcard/screenshot.png";
+                messagePane.addData(messagePane.getCmdTip() + cmd);
+                outStream.println(cmd);
+                outStream.flush();
+                messagePane.cleanCmd();
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+
+            }
+        });
+
+//        timer.schedule(new TimerTask() {
+//            @Override
+//            public void run() {
+//                jPanel2 = flushScreenShot("1");
+//                repaint();
+//            }
+//        }, 0, 1000);
+//        thisLayout.setVerticalGroup(thisLayout.createSequentialGroup()
+//                .addComponent(jPanel1, 0, 262, Short.MAX_VALUE));
+//        thisLayout.setHorizontalGroup(thisLayout.createSequentialGroup()
+//                .addComponent(jPanel1, 0, 384, Short.MAX_VALUE));
 //        messagePane = new javax.swing.JPanel();
         // TODO 86功能按钮
 //        jButton8.setEnabled(false);
-        jButton6.setEnabled(false);
+//        jButton6.setEnabled(false);
 
         messagePane = new CMDPane();
         messagePane.setForeground(Color.WHITE);
@@ -138,30 +225,58 @@ public class Annetra extends javax.swing.JFrame {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("Antenna");
-
         jButton8.setText("截图");
-        jButton6.setText("空");
+        jButton6.setText("复制消息");
+
+
+        jButton6.addActionListener(new java.awt.event.ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String text = jTextField7.getText();
+                if(text==null || text.equals("")){
+                    return ;
+                }
+
+                String cmd = "adb  "+device_s+" shell input text "+text;
+                messagePane.addData(messagePane.getCmdTip() + cmd);
+                outStream.println(cmd);
+                outStream.flush();
+                messagePane.cleanCmd();
+
+            }
+        });
+
+        jList1.addListSelectionListener(new ListSelectionListener() {
+            public void valueChanged(ListSelectionEvent e) {
+                device_s = jList1.getSelectedValue()==null?" ":(" -s "+(String) jList1.getSelectedValue());
+            }
+        });
+
 
         jButton8.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                String cmd = "adb shell /system/bin/screencap -p /sdcard/screenshot.png";
+                String cmd = "adb  "+device_s+" shell /system/bin/screencap -p /sdcard/screenshot.png";
                 messagePane.addData(messagePane.getCmdTip() + cmd);
                 outStream.println(cmd);
                 outStream.flush();
                 messagePane.cleanCmd();
 
-                cmd = "adb pull /sdcard/screenshot.png E:\\download.png";
+                cmd = "adb  "+device_s+" pull /sdcard/screenshot.png d:\\download"+(jList1.getSelectedValue()==null?"":(String) jList1.getSelectedValue()+".png");
                 messagePane.addData(messagePane.getCmdTip() + cmd);
                 outStream.println(cmd);
                 outStream.flush();
                 messagePane.cleanCmd();
+
+                jPanel2 = flushScreenShot(jList1.getSelectedValue()==null?"":(String) jList1.getSelectedValue());
+                jPanel2.repaint();
             }
         });
 
 //        adb shell /system/bin/screencap -p /sdcard/screenshot.png
-//        adb pull /sdcard/screenshot.png E:\download
+//        adb pull /sdcard/screenshot.png d:\download
 
-        jTextField7.setText("jTextField7");
+        jTextField7.setText("");
 
         jButton7.setText("连接端口查看");
         // TODO flush devices
@@ -284,21 +399,61 @@ public class Annetra extends javax.swing.JFrame {
 
         org.jdesktop.layout.GroupLayout layout = new org.jdesktop.layout.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
+
+
+        org.jdesktop.layout.GroupLayout jPanel2Layout2 = new org.jdesktop.layout.GroupLayout(jPanel2);
+        jPanel2.setLayout(jPanel2Layout2);
+        jPanel2Layout2.setHorizontalGroup(
+                jPanel2Layout2.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
+                        .add(0, 215, Short.MAX_VALUE)
+        );
+        jPanel2Layout2.setVerticalGroup(
+                jPanel2Layout2.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
+                        .add(0, 339, Short.MAX_VALUE)
+        );
         layout.setHorizontalGroup(
                 layout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
                         .add(layout.createSequentialGroup()
                                 .add(jPanel3, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
+                                .add(jPanel2, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addContainerGap()
                                 .add(0, 15, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
                 layout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
+                        .add(jPanel3, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .add(layout.createSequentialGroup()
-                                .add(jPanel3, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
-                                .add(0, 12, Short.MAX_VALUE))
+                                .add(20, 20, 20)
+                                .add(jPanel2, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                                .addContainerGap(org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .add(0, 15, Short.MAX_VALUE))
         );
+
+
 
         pack();
     }// </editor-fold>
+
+    private JPanel flushScreenShot(String device) {
+
+        return new JPanel(){
+            private static final long serialVersionUID = 1L;
+
+            public void paint(Graphics g) {
+                super.paint(g);
+                try {
+                    File file = new File("/d:/download"+(jList1.getSelectedValue()==null?"":(String) jList1.getSelectedValue()+".png"));
+                    BufferedImage img = null;
+                    img = ImageIO.read(file);
+                    g.drawImage(img, 0, 0, this.getWidth(), this.getHeight(), null);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                repaint();
+            }
+        };
+    }
 
     private void commandActionPerformed(ActionEvent evt) {
         String cmd = jTextField7.getText();
@@ -328,7 +483,6 @@ public class Annetra extends javax.swing.JFrame {
             e.printStackTrace();
         }
         SwingUtilities.invokeLater(new Runnable() {
-
             @Override
             public void run() {
                 new Annetra();
@@ -436,6 +590,7 @@ public class Annetra extends javax.swing.JFrame {
     private javax.swing.JButton jButton7;
     private javax.swing.JButton jButton8;
     private javax.swing.JButton jButton9;
+    private javax.swing.JPanel jPanel2;
     private javax.swing.JList jList1;
     private javax.swing.JPanel jPanel1;
     private DefaultListModel listmode;
@@ -444,6 +599,13 @@ public class Annetra extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel5;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTextField jTextField7;
+    private String  device_s;
+    private static int startX;
+    private static int startY;
+    private static int endX;
+    private static int endY;
+    private static Double PHONE_X=480.0;
+    private static Double PHONE_Y=480.0;
     // End of variables declaration
 
 }
